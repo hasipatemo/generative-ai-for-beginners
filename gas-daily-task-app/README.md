@@ -3,9 +3,9 @@
 Google Apps Script（GAS）で作った、**スマホで使える日常タスク管理アプリ**です。
 データはすべて Google スプレッドシートに保存されます。
 
-| きろく | AIコメント | カレンダー | せってい |
-|:---:|:---:|:---:|:---:|
-| <img src="images/record.png" width="180"> | <img src="images/ai-comment.png" width="180"> | <img src="images/calendar.png" width="180"> | <img src="images/settings.png" width="180"> |
+| きろく | AIコメント | カレンダー | 一覧表 | せってい |
+|:---:|:---:|:---:|:---:|:---:|
+| <img src="images/record.png" width="150"> | <img src="images/ai-comment.png" width="150"> | <img src="images/calendar.png" width="150"> | <img src="images/table.png" width="150"> | <img src="images/settings.png" width="150"> |
 
 ## できること（要件との対応）
 
@@ -16,6 +16,7 @@ Google Apps Script（GAS）で作った、**スマホで使える日常タスク
 | タスク状況の登録・修正・削除 | 「きろく」画面で日付ごとに登録 → 保存。あとから修正・削除も可能 |
 | 登録状況によりAIでコメント | 「コメントをもらう」ボタンで、その日＋直近7日の記録をAI（Gemini / OpenAI）が読んでコメント |
 | カレンダーで日ごろの状況を確認 | 「カレンダー」画面で、達成度を色分け表示。月のまとめ・タスク別の集計も表示 |
+| 各項目の一覧表・今月の周期（追加） | 「一覧表」画面で、タスク×日付の表と、タスクごとの周期（約◯日に1回）・連続日数・よくできる曜日を表示 |
 | やった／半分できた／やっていない の3種類 | ✅ やった・🔺 半分できた・❌ やってない の3つのボタンで記録 |
 | スマホレイアウト | スマホ幅に合わせた画面・下部メニュー・大きめのボタン |
 | タスクのまとまりを複数作る | 「グループ」機能（例：ヘルス管理・宿題・塾・家事）。上部のタブで切り替え |

@@ -120,7 +120,7 @@ function doGet() {
 | `getDayRecords(groupId, date)` | ある日の記録とAIコメントを返す |
 | `saveDayRecords(groupId, date, statusMap)` | ある日の記録を保存（登録・修正） |
 | `deleteDayRecords(groupId, date)` | ある日の記録を削除 |
-| `getMonthSummary(groupId, year, month)` | カレンダー用に1か月分を集計 |
+| `getMonthSummary(groupId, year, month)` | カレンダー・一覧表用に1か月分を集計（日ごと・タスクごと・タスク×日の表） |
 | `generateAIComment(groupId, date)` | AIにコメントを作ってもらい保存 |
 
 > 💡 GASでは、名前の最後に `_`（アンダースコア）が付いた関数は **画面から呼べない「裏方専用」** になります。
@@ -291,6 +291,7 @@ function api(name, ...args) {
 | `renderGroupTabs()` | 上のグループのタブ |
 | `renderDay()` | きろく画面（達成度・タスクのボタン・AIコメント） |
 | `renderCalendar(sum)` | カレンダーと月のまとめ |
+| `renderTable(sum)` | 一覧表（タスク×日付）と今月のリズム |
 | `renderSettings()` | せってい画面 |
 
 データ（`S`）をもとに HTML の文字を組み立てて、`innerHTML` で画面に入れています。
@@ -339,6 +340,30 @@ cls = r >= 0.8 ? 'lv3' : r >= 0.5 ? 'lv2' : r > 0 ? 'lv1' : 'lv0';
 
 達成度（0〜1）に応じて `lv3`（みどり）〜 `lv0`（あか）の名前を付け、CSSで色を変えています。
 
+#### ⑦ 一覧表と「周期」の計算（analyzeTask）
+
+サーバーの `getMonthSummary` は、一覧表のために `cells`（タスク×日の状況）も返します。
+
+```js
+cells: { 't9f8e7d6c': { 1: 'done', 2: 'half', 5: 'none', ... } }
+```
+
+画面側の `analyzeTask` が、1つのタスクについて月初めから今日まで1日ずつ見ていき、次のものを計算します。
+
+```js
+if (st === 'done' || st === 'half') { didDays.push(d); streak++; best = Math.max(best, streak); }
+else streak = 0;
+```
+
+- **できた日** のリスト（`didDays`）… やった・半分の日
+- **連続日数** … できた日なら `streak` を1増やし、できなかった日は0に戻す。いちばん大きかった値が「最長連続」
+- **周期** …（最後にできた日 − 最初にできた日）÷（できた回数 − 1）＝ 平均で何日おきか
+  例）1日・3日・5日・7日 → (7 − 1) ÷ 3 ＝ 2 → 「約2日に1回」
+- **曜日ごとの達成度** … 曜日ごとに点数（やった1・半分0.5）を合計して、その曜日の日数で割る。
+  いちばん良い曜日と悪い曜日の差が30ポイント以上なら「よくできる曜日」として表示
+
+表の横スクロールでタスク名が左に残るのは、CSSの `position: sticky; left: 0;` のおかげです。
+
 ---
 
 ## 5. 1回の操作の流れ（例：記録を保存する）
@@ -370,6 +395,7 @@ cls = r >= 0.8 ? 'lv3' : r >= 0.5 ? 'lv2' : r > 0 ? 'lv1' : 'lv0';
 | AIコメントの口調や長さを変えたい | `Code.gs` の `generateAIComment` の中の `prompt` |
 | アプリの色を変えたい | `index.html` の `:root { --primary: ...}` など |
 | カレンダーの色の基準を変えたい | `index.html` の `renderCalendar` の `r >= 0.8` など |
-| 「半分」の点数を変えたい | `index.html` の `rateOf` の `0.5` |
+| 「半分」の点数を変えたい | `index.html` の `rateOf` と `SCORE` の `0.5` |
+| 「よくできる曜日」の基準を変えたい | `index.html` の `analyzeTask` の `0.3` |
 
 > 💡 変更したら、Apps Script で保存 → 「デプロイを管理」から **新しいバージョン** でデプロイしなおすと反映されます。

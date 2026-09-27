@@ -126,6 +126,38 @@
     .task-stat .row span:first-child { word-break: break-all; }
     .task-stat .row span:last-child { white-space: nowrap; color: var(--muted); font-size: 12px; }
 
+    /* ===== 一覧表画面 ===== */
+    .matrix-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding-bottom: 4px; }
+    .matrix { border-collapse: separate; border-spacing: 2px; font-size: 12px; }
+    .matrix th, .matrix td { text-align: center; min-width: 26px; height: 28px; padding: 0; }
+    .matrix thead th { font-weight: 600; color: var(--muted); font-size: 11px; line-height: 1.15; cursor: pointer; }
+    .matrix thead th small { font-weight: normal; }
+    .matrix .sticky { position: sticky; left: 0; z-index: 2; background: var(--card); text-align: left;
+      min-width: 92px; max-width: 110px; padding-right: 6px; color: var(--text); font-size: 12px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+    .matrix td.m { background: #f3f4f6; border-radius: 5px; cursor: pointer; color: #374151; }
+    .matrix td.c-done { background: #bbf7d0; }
+    .matrix td.c-half { background: #fef08a; }
+    .matrix td.c-none { background: #fecaca; }
+    .matrix td.future { background: transparent; cursor: default; }
+    .matrix .sun { color: var(--none); }
+    .matrix .sat { color: #2563eb; }
+    .matrix thead th.today { background: var(--primary); color: #fff; border-radius: 5px; }
+    .matrix td.rate { font-weight: 700; min-width: 42px; padding: 0 4px; }
+    .matrix tfoot td { font-size: 10px; color: var(--muted); }
+    .rhythm { border-top: 1px solid var(--line); padding: 12px 0; }
+    .rhythm:first-of-type { border-top: none; padding-top: 4px; }
+    .rhythm .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .rhythm .row b { word-break: break-all; }
+    .rhythm .row span { white-space: nowrap; font-weight: 700; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .tag { font-size: 12px; background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 3px 10px; }
+    .wd { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .wd div { text-align: center; font-size: 11px; border-radius: 6px; padding: 4px 0; background: #f3f4f6; }
+    .wd div b { display: block; font-size: 12px; }
+    .wd .lv3 { background: #bbf7d0; } .wd .lv2 { background: #fef08a; }
+    .wd .lv1 { background: #fed7aa; } .wd .lv0 { background: #fecaca; }
+
     /* ===== せってい画面 ===== */
     .edit-list { list-style: none; margin: 0 0 10px; padding: 0; }
     .edit-list li { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--line); }
@@ -139,7 +171,7 @@
 
     /* ===== 下のメニュー ===== */
     .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--card);
-      border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr);
+      border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr);
       height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
     .bottom-nav button { border: none; background: transparent; font-size: 22px; color: var(--muted);
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
@@ -210,6 +242,31 @@
       <div class="card" id="monthStats"></div>
     </section>
 
+    <!-- ========== 一覧表画面 ========== -->
+    <section id="view-table" class="view">
+      <div class="month-bar">
+        <button class="nav" id="prevMonthT" aria-label="前の月">◀</button>
+        <div class="month-label" id="tableMonthLabel"></div>
+        <button class="nav" id="nextMonthT" aria-label="次の月">▶</button>
+      </div>
+      <div class="card">
+        <h2>タスク × 日付の一覧表</h2>
+        <div class="matrix-wrap" id="matrixWrap"></div>
+        <div class="legend">
+          <span><i style="background:#bbf7d0"></i>○ やった</span>
+          <span><i style="background:#fef08a"></i>△ 半分</span>
+          <span><i style="background:#fecaca"></i>× やってない</span>
+          <span><i style="background:#f3f4f6"></i>未記録</span>
+        </div>
+        <p class="muted" style="margin:0">横にスクロールできます。マスや日付をタップすると、その日の記録画面を開きます。</p>
+      </div>
+      <div class="card">
+        <h2>🔁 今月のリズム（周期）</h2>
+        <p class="muted" style="margin-top:-4px">「やった」「半分」を <b>できた日</b> として、今日までの記録から計算しています。</p>
+        <div id="rhythmList"></div>
+      </div>
+    </section>
+
     <!-- ========== せってい画面 ========== -->
     <section id="view-settings" class="view">
       <div class="card">
@@ -237,6 +294,7 @@
   <nav class="bottom-nav">
     <button data-view="record" class="active">📝<span>きろく</span></button>
     <button data-view="calendar">📅<span>カレンダー</span></button>
+    <button data-view="table">📊<span>一覧表</span></button>
     <button data-view="settings">⚙️<span>せってい</span></button>
   </nav>
 
@@ -400,6 +458,7 @@
     function refreshView() {
       if (S.view === 'record') loadDay();
       else if (S.view === 'calendar') loadCalendar();
+      else if (S.view === 'table') loadTable();
       else renderSettings();
     }
 
@@ -561,7 +620,7 @@
           const r = rateOf(c, sum.taskCount);
           recordedDays++; rateSum += r;
           total.done += c.done; total.half += c.half; total.none += c.none;
-          cls = r >= 0.8 ? 'lv3' : r >= 0.5 ? 'lv2' : r > 0 ? 'lv1' : 'lv0';
+          cls = lvOf(r);
           inner = `<span class="p">${Math.round(r * 100)}%</span>
                    <span class="mini">${barHtml(c, sum.taskCount)}</span>`;
         }
@@ -592,7 +651,146 @@
     function moveMonth(n) {
       const d = new Date(S.calY, S.calM - 1 + n, 1);
       S.calY = d.getFullYear(); S.calM = d.getMonth() + 1;
-      loadCalendar();
+      refreshView(); // カレンダー画面・一覧表画面のどちらからでも使う
+    }
+
+    // =========================================================
+    // 6-2. 一覧表画面（タスク×日付の表と、今月のリズム）
+    // =========================================================
+    const SCORE = { done: 1, half: 0.5, none: 0 };
+    const SYMBOL = { done: '○', half: '△', none: '×' };
+
+    /** 達成度（0〜1）から色の段階を決める */
+    function lvOf(r) { return r >= 0.8 ? 'lv3' : r >= 0.5 ? 'lv2' : r > 0 ? 'lv1' : 'lv0'; }
+
+    /** その月の「今日までの日数」（未来の日は計算に入れない） */
+    function elapsedDays(y, m) {
+      const [ty, tm, td] = S.today.split('-').map(Number);
+      if (y * 12 + m < ty * 12 + tm) return new Date(y, m, 0).getDate(); // 過去の月は全日
+      if (y === ty && m === tm) return td;                              // 今月は今日まで
+      return 0;                                                         // 未来の月
+    }
+
+    async function loadTable() {
+      $('tableMonthLabel').textContent = `${S.calY}年${S.calM}月`;
+      if (!currentGroup()) {
+        $('matrixWrap').innerHTML = '<div class="empty">グループがありません。</div>';
+        $('rhythmList').innerHTML = '';
+        return;
+      }
+      const key = S.groupId + S.calY + '-' + S.calM;
+      const sum = await run('getMonthSummary', S.groupId, S.calY, S.calM);
+      if (key !== S.groupId + S.calY + '-' + S.calM || S.view !== 'table') return;
+      renderTable(sum);
+    }
+
+    /**
+     * 1つのタスクの「リズム」を調べる
+     *   cells : { 日: 'done' | 'half' | 'none' }
+     *   n     : 今日までの日数
+     */
+    function analyzeTask(cells, n) {
+      const didDays = [];                                   // できた日（やった・半分）の一覧
+      const wd = WEEK.map(() => ({ score: 0, days: 0 }));   // 曜日ごとの合計
+      let score = 0, streak = 0, best = 0;
+      for (let d = 1; d <= n; d++) {
+        const st = cells[d];
+        const sc = st ? SCORE[st] : 0;                      // 未記録は 0点
+        const w = new Date(S.calY, S.calM - 1, d).getDay();
+        wd[w].score += sc; wd[w].days++;
+        score += sc;
+        if (st === 'done' || st === 'half') { didDays.push(d); streak++; best = Math.max(best, streak); }
+        else streak = 0;
+      }
+      // 周期：できた日とできた日の間が、平均で何日あいているか
+      let cycle;
+      if (!didDays.length) cycle = 'まだできた日なし';
+      else if (didDays.length === 1) cycle = '今月は1回';
+      else {
+        const avg = (didDays[didDays.length - 1] - didDays[0]) / (didDays.length - 1);
+        cycle = avg <= 1.2 ? 'ほぼ毎日' : `約${Math.round(avg * 10) / 10}日に1回`;
+        if (didDays[0] > 3) cycle += `（${didDays[0]}日〜）`; // 月の途中から始めた場合は開始日も表示
+      }
+      // 曜日ごとの達成度と、よくできている曜日
+      // （いちばん良い曜日と悪い曜日の差が30ポイント以上あるときだけ「よくできる曜日」を出す）
+      const wdRate = wd.map(x => (x.days ? x.score / x.days : null));
+      const known = wdRate.filter(v => v !== null);
+      const max = Math.max(0, ...known), min = Math.min(1, ...known);
+      let weekday = '';
+      if (didDays.length) {
+        weekday = max - min >= 0.3
+          ? 'よくできる曜日：' + WEEK.filter((_, i) => wdRate[i] !== null && wdRate[i] >= max - 1e-9).join('・')
+          : '曜日による差は小さめ';
+      }
+      return { rate: n ? score / n : 0, count: didDays.length, cycle, best, current: streak, wdRate, weekday };
+    }
+
+    function renderTable(sum) {
+      const tasks = groupTasks();
+      if (!tasks.length) {
+        $('matrixWrap').innerHTML = '<div class="empty">このグループにはタスクがありません。</div>';
+        $('rhythmList').innerHTML = '';
+        return;
+      }
+      const daysIn = new Date(S.calY, S.calM, 0).getDate();
+      const n = elapsedDays(S.calY, S.calM);
+      const ds = d => `${S.calY}-${String(S.calM).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dayList = Array.from({ length: daysIn }, (_, i) => i + 1);
+      const wcls = d => { const w = new Date(S.calY, S.calM - 1, d).getDay(); return w === 0 ? 'sun' : w === 6 ? 'sat' : ''; };
+
+      // --- タスク × 日付の表 ---
+      const head = '<tr><th class="sticky">タスク</th>' + dayList.map(d =>
+        `<th class="${wcls(d)} ${ds(d) === S.today ? 'today' : ''}" data-date="${ds(d)}">${d}<br><small>${WEEK[new Date(S.calY, S.calM - 1, d).getDay()]}</small></th>`
+      ).join('') + '<th>達成率</th></tr>';
+
+      const results = {};
+      const body = tasks.map(t => {
+        const cells = sum.cells[t.id] || {};
+        const a = results[t.id] = analyzeTask(cells, n);
+        return `<tr><th class="sticky" title="${esc(t.name)}">${esc(t.name)}</th>` + dayList.map(d => {
+          const st = cells[d];
+          const cls = st ? 'c-' + st : (d > n ? 'future' : '');
+          return `<td class="m ${cls}" data-date="${ds(d)}">${st ? SYMBOL[st] : ''}</td>`;
+        }).join('') + `<td class="rate">${n ? Math.round(a.rate * 100) + '%' : '-'}</td></tr>`;
+      }).join('');
+
+      const foot = '<tr><td class="sticky">日の達成度</td>' + dayList.map(d => {
+        const c = sum.days[ds(d)];
+        return `<td>${c ? Math.round(rateOf(c, sum.taskCount) * 100) : ''}</td>`;
+      }).join('') + '<td></td></tr>';
+
+      $('matrixWrap').innerHTML = `<table class="matrix"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
+
+      // 今日（または月末）の列が見えるように、横スクロールの位置を合わせる
+      const wrap = $('matrixWrap');
+      const target = wrap.querySelector('thead th.today') || (n ? wrap.querySelectorAll('thead th')[n] : null);
+      wrap.scrollLeft = target ? Math.max(0, target.offsetLeft - wrap.clientWidth + 80) : 0;
+
+      // --- 今月のリズム ---
+      if (!n) {
+        $('rhythmList').innerHTML = '<p class="muted">この月はまだ始まっていません。</p>';
+        return;
+      }
+      if (!Object.keys(sum.days).length) {
+        $('rhythmList').innerHTML = '<p class="muted">この月の記録はまだありません。</p>';
+        return;
+      }
+      $('rhythmList').innerHTML = tasks.map(t => {
+        const a = results[t.id];
+        return `<div class="rhythm">
+          <div class="row"><b>${esc(t.name)}</b><span>${Math.round(a.rate * 100)}%</span></div>
+          <div class="tags">
+            <span class="tag">🔁 ${a.cycle}</span>
+            <span class="tag">✔ ${n}日中 ${a.count}日できた</span>
+            ${a.best >= 2 ? `<span class="tag">🔥 最長${a.best}日連続</span>` : ''}
+            ${a.current >= 2 ? `<span class="tag">⚡ いま${a.current}日連続中</span>` : ''}
+            ${a.weekday ? `<span class="tag">📅 ${a.weekday}</span>` : ''}
+          </div>
+          <div class="wd">${a.wdRate.map((r, i) =>
+            `<div class="${r === null ? '' : lvOf(r)}"><b>${WEEK[i]}</b>${r === null ? '-' : Math.round(r * 100) + '%'}</div>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
     }
 
     // =========================================================
@@ -700,6 +898,16 @@
       $('calGrid').addEventListener('click', e => {
         const c = e.target.closest('.cal-cell[data-date]');
         if (!c) return;
+        S.date = c.dataset.date;
+        switchView('record');
+      });
+
+      // 一覧表画面
+      $('prevMonthT').addEventListener('click', () => moveMonth(-1));
+      $('nextMonthT').addEventListener('click', () => moveMonth(1));
+      $('matrixWrap').addEventListener('click', e => {
+        const c = e.target.closest('[data-date]');
+        if (!c || c.classList.contains('future')) return;
         S.date = c.dataset.date;
         switchView('record');
       });

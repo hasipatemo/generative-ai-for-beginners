@@ -227,13 +227,19 @@ function deleteDayRecords(groupId, date) {
   });
 }
 
-/** カレンダー用：1か月分の記録を日ごと・タスクごとに集計する */
+/**
+ * カレンダー・一覧表用：1か月分の記録を集計する
+ *   days    : 日ごとの集計   { '2026-09-01': { done, half, none } }
+ *   perTask : タスクごとの集計 { taskId: { done, half, none } }
+ *   cells   : タスク×日の状況 { taskId: { 1: 'done', 2: 'half', ... } }（一覧表で使う）
+ */
 function getMonthSummary(groupId, year, month) {
   const prefix = year + '-' + pad2_(month) + '-';
   const tasks = listTasks_().filter(t => t.groupId === groupId);
   const days = {};
   const perTask = {};
-  tasks.forEach(t => { perTask[t.id] = { done: 0, half: 0, none: 0 }; });
+  const cells = {};
+  tasks.forEach(t => { perTask[t.id] = { done: 0, half: 0, none: 0 }; cells[t.id] = {}; });
 
   readRows_('records').forEach(r => {
     const d = dateStr_(r.date);
@@ -244,9 +250,10 @@ function getMonthSummary(groupId, year, month) {
     days[d] = days[d] || { done: 0, half: 0, none: 0 };
     days[d][s]++;
     perTask[tid][s]++;
+    cells[tid][Number(d.slice(8, 10))] = s;
   });
 
-  return { year: year, month: month, taskCount: tasks.length, days: days, perTask: perTask };
+  return { year: year, month: month, taskCount: tasks.length, days: days, perTask: perTask, cells: cells };
 }
 
 /** AIに記録を見てもらい、コメントを作って保存する */

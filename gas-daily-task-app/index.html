@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>まいにちタスク</title>
+  <style>
+    /* ===== 色やサイズの基本設定 ===== */
+    :root {
+      --bg: #f4f5fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #4f46e5;
+      --done: #16a34a;
+      --half: #f59e0b;
+      --none: #ef4444;
+      --radius: 14px;
+      --nav-h: 64px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; }
+    body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px); }
+    button, input { font: inherit; }
+    input { font-size: 16px; } /* iPhoneで入力時に画面が拡大されないように16px */
+
+    /* ===== ヘッダー（上部） ===== */
+    .app-header { position: sticky; top: 0; z-index: 10; background: var(--card);
+      border-bottom: 1px solid var(--line); padding: 10px 16px 8px; }
+    .app-header h1 { margin: 0 0 8px; font-size: 18px; }
+    .group-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .group-tabs::-webkit-scrollbar { display: none; }
+    .chip { flex: 0 0 auto; border: 1.5px solid var(--line); background: #fff; color: var(--text);
+      border-radius: 999px; padding: 6px 14px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    .chip.active { color: #fff; border-color: transparent; }
+
+    main { max-width: 520px; margin: 0 auto; padding: 12px 16px; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .card { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+    .card h2 { font-size: 16px; margin: 0 0 10px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .empty { text-align: center; color: var(--muted); padding: 28px 8px; line-height: 1.7; }
+
+    /* ===== ボタン ===== */
+    .btn { border: 1.5px solid var(--line); background: #fff; color: var(--text); border-radius: 10px;
+      padding: 10px 14px; cursor: pointer; }
+    .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn.danger { background: var(--none); border-color: var(--none); color: #fff; }
+    .btn.danger-outline { color: var(--none); border-color: #fecaca; }
+    .btn.small { padding: 6px 10px; font-size: 13px; }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .icon-btn { border: none; background: transparent; font-size: 18px; padding: 6px 8px; cursor: pointer; }
+
+    /* ===== きろく画面 ===== */
+    .date-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .date-bar .nav { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line);
+      background: #fff; font-size: 16px; cursor: pointer; }
+    .date-center { flex: 1; text-align: center; position: relative; }
+    .date-label { font-size: 18px; font-weight: 700; }
+    .date-sub { font-size: 12px; color: var(--muted); }
+    .date-center input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+    .badge { display: inline-block; font-size: 11px; background: var(--primary); color: #fff;
+      border-radius: 6px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+
+    .progress-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .progress-rate { font-size: 28px; font-weight: 800; }
+    .bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--line); margin: 8px 0 6px; }
+    .bar span { display: block; height: 100%; }
+    .b-done { background: var(--done); }
+    .b-half { background: var(--half); }
+    .b-none { background: var(--none); }
+    .counts { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+
+    .task-list { list-style: none; margin: 0; padding: 0; }
+    .task { background: var(--card); border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.05); border-left: 5px solid var(--line); }
+    .task.s-done { border-left-color: var(--done); }
+    .task.s-half { border-left-color: var(--half); }
+    .task.s-none { border-left-color: var(--none); }
+    .task-name { font-weight: 600; margin-bottom: 8px; word-break: break-all; }
+    .status-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .status-btns button { border: 1.5px solid var(--line); background: #fff; border-radius: 10px;
+      padding: 8px 2px; font-size: 13px; cursor: pointer; min-height: 44px; }
+    .status-btns button.on[data-status="done"] { background: #dcfce7; border-color: var(--done); font-weight: 700; }
+    .status-btns button.on[data-status="half"] { background: #fef3c7; border-color: var(--half); font-weight: 700; }
+    .status-btns button.on[data-status="none"] { background: #fee2e2; border-color: var(--none); font-weight: 700; }
+
+    .actions { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin: 4px 0 12px; }
+    .unsaved { color: var(--half); font-size: 12px; text-align: center; margin-bottom: 6px; min-height: 16px; }
+
+    .ai-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .ai-text { margin: 0; line-height: 1.8; white-space: pre-wrap; font-size: 15px; }
+
+    /* ===== カレンダー画面 ===== */
+    .month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .month-bar .nav { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+    .month-label { font-size: 18px; font-weight: 700; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-dow { text-align: center; font-size: 12px; color: var(--muted); padding: 4px 0; }
+    .cal-dow.sun { color: var(--none); }
+    .cal-dow.sat { color: #2563eb; }
+    .cal-cell { aspect-ratio: 1 / 1.15; border: 1.5px solid transparent; border-radius: 10px; background: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      padding: 4px 2px; cursor: pointer; min-width: 0; font-size: 13px; color: var(--text); }
+    .cal-cell.blank { background: transparent; cursor: default; }
+    .cal-cell .p { font-size: 10px; font-weight: 700; }
+    .cal-cell .mini { display: flex; width: 80%; height: 4px; border-radius: 4px; overflow: hidden; background: var(--line); }
+    .cal-cell .mini span { height: 100%; }
+    .cal-cell.lv3 { background: #bbf7d0; }
+    .cal-cell.lv2 { background: #fef08a; }
+    .cal-cell.lv1 { background: #fed7aa; }
+    .cal-cell.lv0 { background: #fecaca; }
+    .cal-cell.today { border-color: var(--primary); }
+    .cal-cell.selected { box-shadow: 0 0 0 2px var(--text) inset; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 12px; color: var(--muted); margin: 10px 0 12px; }
+    .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 3px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 12px; }
+    .stats-grid b { display: block; font-size: 20px; }
+    .task-stat { margin-bottom: 10px; }
+    .task-stat .row { display: flex; justify-content: space-between; font-size: 14px; gap: 8px; }
+    .task-stat .row span:first-child { word-break: break-all; }
+    .task-stat .row span:last-child { white-space: nowrap; color: var(--muted); font-size: 12px; }
+
+    /* ===== せってい画面 ===== */
+    .edit-list { list-style: none; margin: 0 0 10px; padding: 0; }
+    .edit-list li { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .edit-list li:last-child { border-bottom: none; }
+    .edit-list .name { flex: 1; word-break: break-all; cursor: pointer; padding: 6px 0; }
+    .edit-list .dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+    .edit-list li.current .name { font-weight: 700; }
+    .add-form { display: flex; gap: 8px; }
+    .add-form input { flex: 1; min-width: 0; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px; }
+    .count { font-size: 13px; color: var(--muted); font-weight: normal; }
+
+    /* ===== 下のメニュー ===== */
+    .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--card);
+      border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(3, 1fr);
+      height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
+    .bottom-nav button { border: none; background: transparent; font-size: 22px; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+    .bottom-nav button span { font-size: 11px; }
+    .bottom-nav button.active { color: var(--primary); }
+    .bottom-nav button.active span { font-weight: 700; }
+
+    /* ===== ダイアログ・お知らせ・読み込み中 ===== */
+    .dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50;
+      display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .dialog-backdrop[hidden] { display: none; }
+    .dialog { background: #fff; border-radius: 16px; padding: 18px; width: 100%; max-width: 360px; }
+    .dialog h3 { margin: 0 0 8px; font-size: 17px; }
+    .dialog p { margin: 0 0 12px; line-height: 1.6; color: var(--muted); white-space: pre-wrap; }
+    .dialog input { width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+    .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    #toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px);
+      transform: translateX(-50%); background: rgba(31,41,55,.92); color: #fff; padding: 10px 16px;
+      border-radius: 10px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none;
+      max-width: calc(100% - 32px); }
+    #toast.show { opacity: 1; }
+    #loading { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 70; display: none;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent); background-size: 200% 100%;
+      animation: load 1s linear infinite; }
+    #loading.show { display: block; }
+    @keyframes load { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>📋 まいにちタスク</h1>
+    <div id="groupTabs" class="group-tabs"></div>
+  </header>
+
+  <main>
+    <!-- ========== きろく画面 ========== -->
+    <section id="view-record" class="view active">
+      <div class="date-bar">
+        <button class="nav" id="prevDay" aria-label="前の日">◀</button>
+        <div class="date-center">
+          <div class="date-label" id="dateLabel"></div>
+          <div class="date-sub">タップして日付をえらぶ</div>
+          <input type="date" id="dateInput" aria-label="日付をえらぶ">
+        </div>
+        <button class="nav" id="nextDay" aria-label="次の日">▶</button>
+      </div>
+      <div id="recordBody"></div>
+    </section>
+
+    <!-- ========== カレンダー画面 ========== -->
+    <section id="view-calendar" class="view">
+      <div class="month-bar">
+        <button class="nav" id="prevMonth" aria-label="前の月">◀</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button class="nav" id="nextMonth" aria-label="次の月">▶</button>
+      </div>
+      <div class="card">
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="legend">
+          <span><i style="background:#bbf7d0"></i>80%以上</span>
+          <span><i style="background:#fef08a"></i>50%以上</span>
+          <span><i style="background:#fed7aa"></i>1〜49%</span>
+          <span><i style="background:#fecaca"></i>0%</span>
+          <span><i style="background:#fff;border:1px solid #e5e7eb"></i>未記録</span>
+        </div>
+        <p class="muted" style="margin:0">日付をタップすると、その日の記録画面を開きます。</p>
+      </div>
+      <div class="card" id="monthStats"></div>
+    </section>
+
+    <!-- ========== せってい画面 ========== -->
+    <section id="view-settings" class="view">
+      <div class="card">
+        <h2>グループ <span class="count" id="groupCount"></span></h2>
+        <p class="muted" style="margin-top:-4px">名前をタップすると、そのグループに切り替わります。</p>
+        <ul id="groupList" class="edit-list"></ul>
+        <form id="groupForm" class="add-form">
+          <input id="groupName" maxlength="20" placeholder="例：ヘルス管理" autocomplete="off">
+          <button class="btn primary" type="submit">追加</button>
+        </form>
+      </div>
+      <div class="card" id="taskSettingCard">
+        <h2>「<span id="setGroupName"></span>」のタスク <span class="count" id="taskCount"></span></h2>
+        <ul id="taskEditList" class="edit-list"></ul>
+        <form id="taskForm" class="add-form">
+          <input id="taskName" maxlength="30" placeholder="例：ストレッチ10分" autocomplete="off">
+          <button class="btn primary" type="submit" id="taskAddBtn">追加</button>
+        </form>
+        <p class="muted" id="taskLimitMsg"></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========== 下のメニュー ========== -->
+  <nav class="bottom-nav">
+    <button data-view="record" class="active">📝<span>きろく</span></button>
+    <button data-view="calendar">📅<span>カレンダー</span></button>
+    <button data-view="settings">⚙️<span>せってい</span></button>
+  </nav>
+
+  <!-- 確認ダイアログ -->
+  <div id="dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+      <h3 id="dlgTitle"></h3>
+      <p id="dlgMsg"></p>
+      <input id="dlgInput" hidden autocomplete="off">
+      <div class="dialog-actions">
+        <button class="btn" id="dlgCancel">キャンセル</button>
+        <button class="btn primary" id="dlgOk">OK</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+  <div id="loading"></div>
+
+  <script>
+    // =========================================================
+    // 1. アプリの状態（今どのグループ・どの日付を見ているか など）
+    // =========================================================
+    const S = {
+      groups: [], tasks: [], maxTasks: 10, maxGroups: 10, aiEnabled: false,
+      today: '', groupId: null, view: 'record',
+      date: '', status: {}, saved: {}, comment: null, // きろく画面
+      calY: 0, calM: 0,                               // カレンダー画面
+    };
+    const STATUS = [
+      { key: 'done', icon: '✅', label: 'やった' },
+      { key: 'half', icon: '🔺', label: '半分できた' },
+      { key: 'none', icon: '❌', label: 'やってない' },
+    ];
+    const $ = (id) => document.getElementById(id);
+
+    // =========================================================
+    // 2. サーバー（Code.gs）を呼び出すしくみ
+    // =========================================================
+    function api(name, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)[name](...args);
+      });
+    }
+    let loadingCount = 0;
+    async function run(name, ...args) {
+      loadingCount++;
+      $('loading').classList.add('show');
+      try {
+        return await api(name, ...args);
+      } catch (e) {
+        toast('⚠️ ' + (e && e.message ? e.message : e));
+        throw e;
+      } finally {
+        if (--loadingCount === 0) $('loading').classList.remove('show');
+      }
+    }
+
+    // =========================================================
+    // 3. 小さな便利関数
+    // =========================================================
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    let toastTimer;
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+    // 日付 "2026-09-27" ⇔ Date の変換
+    function parseDate(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+    function fmtDate(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function addDays(s, n) { const d = parseDate(s); d.setDate(d.getDate() + n); return fmtDate(d); }
+    const WEEK = ['日', '月', '火', '水', '木', '金', '土'];
+
+    // 達成度 ＝（やった×1 ＋ 半分×0.5）÷ タスク数
+    function rateOf(c, taskCount) {
+      return taskCount ? (c.done + c.half * 0.5) / taskCount : 0;
+    }
+    function barHtml(c, total) {
+      if (!total) return '';
+      const w = k => (c[k] / total * 100) + '%';
+      return `<span class="b-done" style="width:${w('done')}"></span>` +
+             `<span class="b-half" style="width:${w('half')}"></span>` +
+             `<span class="b-none" style="width:${w('none')}"></span>`;
+    }
+
+    /** 確認・入力用のダイアログ。OKで true（入力ありなら文字）、キャンセルで false/null */
+    function dialog({ title = '', message = '', input = null, okText = 'OK', danger = false, maxLength = 30 }) {
+      return new Promise(resolve => {
+        $('dlgTitle').textContent = title;
+        $('dlgMsg').textContent = message;
+        const inp = $('dlgInput');
+        inp.hidden = input === null;
+        if (input !== null) { inp.value = input; inp.maxLength = maxLength; }
+        const ok = $('dlgOk');
+        ok.textContent = okText;
+        ok.className = 'btn ' + (danger ? 'danger' : 'primary');
+        $('dialog').hidden = false;
+        if (input !== null) setTimeout(() => inp.focus(), 50);
+        const close = (v) => {
+          $('dialog').hidden = true;
+          ok.onclick = $('dlgCancel').onclick = inp.onkeydown = null;
+          resolve(v);
+        };
+        ok.onclick = () => close(input === null ? true : inp.value.trim());
+        $('dlgCancel').onclick = () => close(input === null ? false : null);
+        inp.onkeydown = (e) => { if (e.key === 'Enter') ok.onclick(); };
+      });
+    }
+
+    function currentGroup() { return S.groups.find(g => g.id === S.groupId); }
+    function groupTasks() { return S.tasks.filter(t => t.groupId === S.groupId); }
+
+    /** 保存していない変更があるか */
+    function isDirty() {
+      const keys = new Set([...Object.keys(S.status), ...Object.keys(S.saved)]);
+      return [...keys].some(k => S.status[k] !== S.saved[k]);
+    }
+    /** 保存していない変更があるときに「移動してよいか」を確認 */
+    async function confirmLeave() {
+      if (S.view !== 'record' || !isDirty()) return true;
+      return dialog({ title: '保存していません', message: 'この日の変更がまだ保存されていません。\n保存せずに移動しますか？', okText: '移動する', danger: true });
+    }
+
+    // =========================================================
+    // 4. グループの切り替え（上のタブ）と画面の切り替え（下のメニュー）
+    // =========================================================
+    function renderGroupTabs() {
+      $('groupTabs').innerHTML = S.groups.map(g =>
+        `<button class="chip ${g.id === S.groupId ? 'active' : ''}" data-id="${esc(g.id)}"
+           style="${g.id === S.groupId ? 'background:' + esc(g.color) : ''}">${esc(g.name)}</button>`
+      ).join('') || '<span class="muted">グループがありません</span>';
+    }
+
+    async function changeGroup(id) {
+      if (id === S.groupId) return;
+      if (!(await confirmLeave())) return;
+      S.groupId = id;
+      try { localStorage.setItem('lastGroupId', id); } catch (e) { /* 保存できなくても問題なし */ }
+      renderGroupTabs();
+      refreshView();
+    }
+
+    async function switchView(view) {
+      if (view === S.view) return;
+      if (!(await confirmLeave())) return;
+      S.view = view;
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+      document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+      window.scrollTo(0, 0);
+      refreshView();
+    }
+
+    function refreshView() {
+      if (S.view === 'record') loadDay();
+      else if (S.view === 'calendar') loadCalendar();
+      else renderSettings();
+    }
+
+    // =========================================================
+    // 5. きろく画面
+    // =========================================================
+    async function loadDay() {
+      renderDateBar();
+      if (!currentGroup()) {
+        $('recordBody').innerHTML = '<div class="empty">グループがありません。<br>下の「⚙️ せってい」からグループを作りましょう。</div>';
+        return;
+      }
+      const target = S.groupId + S.date;
+      const res = await run('getDayRecords', S.groupId, S.date);
+      if (target !== S.groupId + S.date) return; // 読み込み中に別の日へ移動した場合は無視
+      S.status = Object.assign({}, res.status);
+      S.saved = Object.assign({}, res.status);
+      S.comment = res.comment;
+      renderDay();
+    }
+
+    function renderDateBar() {
+      const d = parseDate(S.date);
+      $('dateLabel').innerHTML = `${d.getMonth() + 1}月${d.getDate()}日（${WEEK[d.getDay()]}）` +
+        (S.date === S.today ? '<span class="badge">今日</span>' : '');
+      $('dateInput').value = S.date;
+    }
+
+    function renderDay() {
+      const tasks = groupTasks();
+      if (!tasks.length) {
+        $('recordBody').innerHTML = '<div class="empty">このグループにはタスクがありません。<br>「⚙️ せってい」からタスクを追加しましょう。</div>';
+        return;
+      }
+      const c = { done: 0, half: 0, none: 0 };
+      tasks.forEach(t => { if (S.status[t.id]) c[S.status[t.id]]++; });
+      const unrec = tasks.length - c.done - c.half - c.none;
+      const pct = Math.round(rateOf(c, tasks.length) * 100);
+      const dirty = isDirty();
+      const hasSaved = Object.keys(S.saved).length > 0;
+
+      const commentText = S.comment
+        ? esc(S.comment.text)
+        : (S.aiEnabled ? '記録を保存したら「コメントをもらう」を押してみましょう。'
+                       : '「コメントをもらう」を押すと、記録にあわせたコメントが表示されます。<br><span class="muted">（AIのAPIキーが未設定のため、今は自動メッセージになります）</span>');
+
+      $('recordBody').innerHTML = `
+        <div class="card">
+          <div class="progress-row">
+            <span>この日の達成度</span>
+            <span class="progress-rate">${pct}<small style="font-size:14px">%</small></span>
+          </div>
+          <div class="bar">${barHtml(c, tasks.length)}</div>
+          <div class="counts">
+            <span>✅ やった ${c.done}</span><span>🔺 半分 ${c.half}</span>
+            <span>❌ やってない ${c.none}</span><span>⬜ 未記録 ${unrec}</span>
+          </div>
+        </div>
+        <ul class="task-list">
+          ${tasks.map(t => `
+            <li class="task ${S.status[t.id] ? 's-' + S.status[t.id] : ''}">
+              <div class="task-name">${esc(t.name)}</div>
+              <div class="status-btns">
+                ${STATUS.map(s => `
+                  <button data-task="${esc(t.id)}" data-status="${s.key}" class="${S.status[t.id] === s.key ? 'on' : ''}">
+                    ${s.icon} ${s.label}
+                  </button>`).join('')}
+              </div>
+            </li>`).join('')}
+        </ul>
+        <div class="unsaved">${dirty ? '● 変更があります。「保存する」を押してください' : ''}</div>
+        <div class="actions">
+          <button class="btn primary" id="saveDay" ${dirty ? '' : 'disabled'}>💾 保存する</button>
+          <button class="btn danger-outline" id="deleteDay" ${hasSaved || S.comment ? '' : 'disabled'}>🗑 削除</button>
+        </div>
+        <div class="card">
+          <div class="ai-head">
+            <b>🤖 AIからのコメント</b>
+            <button class="btn small primary" id="aiBtn">${S.comment ? 'もう一度' : 'コメントをもらう'}</button>
+          </div>
+          <p class="ai-text">${commentText}</p>
+        </div>`;
+    }
+
+    function setStatus(taskId, key) {
+      // 同じボタンをもう一度押すと「未記録」に戻る
+      if (S.status[taskId] === key) delete S.status[taskId];
+      else S.status[taskId] = key;
+      renderDay();
+    }
+
+    async function saveDay() {
+      await run('saveDayRecords', S.groupId, S.date, S.status);
+      S.saved = Object.assign({}, S.status);
+      toast('保存しました');
+      renderDay();
+    }
+
+    async function deleteDay() {
+      const ok = await dialog({
+        title: 'この日の記録を削除',
+        message: `${S.date} の「${currentGroup().name}」の記録とAIコメントを削除します。よろしいですか？`,
+        okText: '削除する', danger: true,
+      });
+      if (!ok) return;
+      await run('deleteDayRecords', S.groupId, S.date);
+      S.status = {}; S.saved = {}; S.comment = null;
+      toast('削除しました');
+      renderDay();
+    }
+
+    async function changeDate(newDate) {
+      if (!newDate || newDate === S.date) return;
+      if (!(await confirmLeave())) { $('dateInput').value = S.date; return; }
+      S.date = newDate;
+      loadDay();
+    }
+
+    async function askAI() {
+      if (isDirty()) await saveDay(); // 最新の記録でコメントしてもらうため、先に保存
+      const btn = $('aiBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '考え中…'; }
+      try {
+        S.comment = await run('generateAIComment', S.groupId, S.date);
+      } finally {
+        renderDay();
+      }
+    }
+
+    // =========================================================
+    // 6. カレンダー画面
+    // =========================================================
+    async function loadCalendar() {
+      $('monthLabel').textContent = `${S.calY}年${S.calM}月`;
+      if (!currentGroup()) {
+        $('calGrid').innerHTML = '';
+        $('monthStats').innerHTML = '<div class="empty">グループがありません。</div>';
+        return;
+      }
+      const key = S.groupId + S.calY + '-' + S.calM;
+      const sum = await run('getMonthSummary', S.groupId, S.calY, S.calM);
+      if (key !== S.groupId + S.calY + '-' + S.calM) return;
+      renderCalendar(sum);
+    }
+
+    function renderCalendar(sum) {
+      const first = new Date(S.calY, S.calM - 1, 1);
+      const daysIn = new Date(S.calY, S.calM, 0).getDate();
+      let html = WEEK.map((w, i) => `<div class="cal-dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${w}</div>`).join('');
+      for (let i = 0; i < first.getDay(); i++) html += '<div class="cal-cell blank"></div>';
+
+      let recordedDays = 0, rateSum = 0;
+      const total = { done: 0, half: 0, none: 0 };
+      for (let d = 1; d <= daysIn; d++) {
+        const ds = `${S.calY}-${String(S.calM).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const c = sum.days[ds];
+        let cls = '', inner = '';
+        if (c) {
+          const r = rateOf(c, sum.taskCount);
+          recordedDays++; rateSum += r;
+          total.done += c.done; total.half += c.half; total.none += c.none;
+          cls = r >= 0.8 ? 'lv3' : r >= 0.5 ? 'lv2' : r > 0 ? 'lv1' : 'lv0';
+          inner = `<span class="p">${Math.round(r * 100)}%</span>
+                   <span class="mini">${barHtml(c, sum.taskCount)}</span>`;
+        }
+        html += `<button class="cal-cell ${cls} ${ds === S.today ? 'today' : ''} ${ds === S.date ? 'selected' : ''}" data-date="${ds}">
+                   <span>${d}</span>${inner}</button>`;
+      }
+      $('calGrid').innerHTML = html;
+
+      // 月のまとめ
+      const tasks = groupTasks();
+      const avg = recordedDays ? Math.round(rateSum / recordedDays * 100) : 0;
+      $('monthStats').innerHTML = `
+        <h2>${S.calM}月のまとめ</h2>
+        <div class="stats-grid">
+          <div><b>${recordedDays}</b><span class="muted">記録した日</span></div>
+          <div><b>${avg}%</b><span class="muted">平均達成度</span></div>
+          <div><b>${total.done}</b><span class="muted">✅ やった回数</span></div>
+        </div>
+        ${tasks.length ? tasks.map(t => {
+          const c = sum.perTask[t.id] || { done: 0, half: 0, none: 0 };
+          const n = c.done + c.half + c.none;
+          return `<div class="task-stat">
+            <div class="row"><span>${esc(t.name)}</span><span>✅${c.done} 🔺${c.half} ❌${c.none}</span></div>
+            <div class="bar">${barHtml(c, n)}</div></div>`;
+        }).join('') : '<p class="muted">タスクがありません。</p>'}`;
+    }
+
+    function moveMonth(n) {
+      const d = new Date(S.calY, S.calM - 1 + n, 1);
+      S.calY = d.getFullYear(); S.calM = d.getMonth() + 1;
+      loadCalendar();
+    }
+
+    // =========================================================
+    // 7. せってい画面（グループ・タスクの登録／修正／削除）
+    // =========================================================
+    function renderSettings() {
+      $('groupCount').textContent = `${S.groups.length} / ${S.maxGroups}`;
+      $('groupList').innerHTML = S.groups.map(g => `
+        <li class="${g.id === S.groupId ? 'current' : ''}">
+          <span class="dot" style="background:${esc(g.color)}"></span>
+          <span class="name" data-act="select-group" data-id="${esc(g.id)}">${esc(g.name)}${g.id === S.groupId ? '（表示中）' : ''}</span>
+          <button class="icon-btn" data-act="edit-group" data-id="${esc(g.id)}" aria-label="名前を変更">✏️</button>
+          <button class="icon-btn" data-act="delete-group" data-id="${esc(g.id)}" aria-label="削除">🗑</button>
+        </li>`).join('') || '<li class="muted">まだグループがありません。下から追加しましょう。</li>';
+
+      const g = currentGroup();
+      $('taskSettingCard').style.display = g ? '' : 'none';
+      if (!g) return;
+      const tasks = groupTasks();
+      $('setGroupName').textContent = g.name;
+      $('taskCount').textContent = `${tasks.length} / ${S.maxTasks}`;
+      $('taskEditList').innerHTML = tasks.map(t => `
+        <li>
+          <span class="name">${esc(t.name)}</span>
+          <button class="icon-btn" data-act="edit-task" data-id="${esc(t.id)}" aria-label="名前を変更">✏️</button>
+          <button class="icon-btn" data-act="delete-task" data-id="${esc(t.id)}" aria-label="削除">🗑</button>
+        </li>`).join('') || '<li class="muted">まだタスクがありません。下から追加しましょう。</li>';
+      const full = tasks.length >= S.maxTasks;
+      $('taskName').disabled = $('taskAddBtn').disabled = full;
+      $('taskLimitMsg').textContent = full
+        ? `タスクは1グループにつき${S.maxTasks}個までです。追加するには、どれかを削除してください。`
+        : `タスクは1グループにつき${S.maxTasks}個まで登録できます。`;
+    }
+
+    /** サーバーから返ってきた最新のグループ・タスク一覧を反映 */
+    function applySnapshot(res) {
+      S.groups = res.groups;
+      S.tasks = res.tasks;
+      if (!currentGroup()) S.groupId = S.groups.length ? S.groups[0].id : null;
+      renderGroupTabs();
+      renderSettings();
+    }
+
+    async function onSettingsClick(e) {
+      const el = e.target.closest('[data-act]');
+      if (!el) return;
+      const id = el.dataset.id;
+      const act = el.dataset.act;
+      if (act === 'select-group') {
+        await changeGroup(id);
+      } else if (act === 'edit-group') {
+        const g = S.groups.find(x => x.id === id);
+        const name = await dialog({ title: 'グループ名の変更', input: g.name, maxLength: 20, okText: '変更する' });
+        if (name) { applySnapshot(await run('saveGroup', { id, name })); toast('変更しました'); }
+      } else if (act === 'delete-group') {
+        const g = S.groups.find(x => x.id === id);
+        const ok = await dialog({
+          title: 'グループの削除',
+          message: `「${g.name}」を削除します。\nこのグループのタスク・記録・AIコメントもすべて消えます。よろしいですか？`,
+          okText: '削除する', danger: true,
+        });
+        if (ok) { applySnapshot(await run('deleteGroup', id)); toast('削除しました'); }
+      } else if (act === 'edit-task') {
+        const t = S.tasks.find(x => x.id === id);
+        const name = await dialog({ title: 'タスク名の変更', input: t.name, maxLength: 30, okText: '変更する' });
+        if (name) { applySnapshot(await run('saveTask', { id, name })); toast('変更しました'); }
+      } else if (act === 'delete-task') {
+        const t = S.tasks.find(x => x.id === id);
+        const ok = await dialog({
+          title: 'タスクの削除',
+          message: `「${t.name}」を削除します。\nこのタスクの過去の記録も消えます。よろしいですか？`,
+          okText: '削除する', danger: true,
+        });
+        if (ok) { applySnapshot(await run('deleteTask', id)); toast('削除しました'); }
+      }
+    }
+
+    // =========================================================
+    // 8. ボタンなどのイベント登録と、アプリの起動
+    // =========================================================
+    function bindEvents() {
+      $('groupTabs').addEventListener('click', e => {
+        const b = e.target.closest('.chip[data-id]');
+        if (b) changeGroup(b.dataset.id);
+      });
+      document.querySelectorAll('.bottom-nav button').forEach(b =>
+        b.addEventListener('click', () => switchView(b.dataset.view)));
+
+      // きろく画面
+      $('prevDay').addEventListener('click', () => changeDate(addDays(S.date, -1)));
+      $('nextDay').addEventListener('click', () => changeDate(addDays(S.date, 1)));
+      $('dateInput').addEventListener('change', e => changeDate(e.target.value));
+      $('recordBody').addEventListener('click', e => {
+        const s = e.target.closest('button[data-task]');
+        if (s) return setStatus(s.dataset.task, s.dataset.status);
+        const id = e.target.closest('button') && e.target.closest('button').id;
+        if (id === 'saveDay') saveDay();
+        else if (id === 'deleteDay') deleteDay();
+        else if (id === 'aiBtn') askAI();
+      });
+
+      // カレンダー画面
+      $('prevMonth').addEventListener('click', () => moveMonth(-1));
+      $('nextMonth').addEventListener('click', () => moveMonth(1));
+      $('calGrid').addEventListener('click', e => {
+        const c = e.target.closest('.cal-cell[data-date]');
+        if (!c) return;
+        S.date = c.dataset.date;
+        switchView('record');
+      });
+
+      // せってい画面
+      $('view-settings').addEventListener('click', onSettingsClick);
+      $('groupForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = $('groupName').value.trim();
+        if (!name) return toast('グループ名を入力してください');
+        const res = await run('saveGroup', { name });
+        $('groupName').value = '';
+        const before = new Set(S.groups.map(g => g.id));
+        const added = res.groups.find(g => !before.has(g.id));
+        if (added) S.groupId = added.id; // 追加したグループを表示中にする
+        applySnapshot(res);
+        toast('グループを追加しました');
+      });
+      $('taskForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = $('taskName').value.trim();
+        if (!name) return toast('タスク名を入力してください');
+        applySnapshot(await run('saveTask', { groupId: S.groupId, name }));
+        $('taskName').value = '';
+        toast('タスクを追加しました');
+      });
+    }
+
+    async function init() {
+      bindEvents();
+      const d = await run('getInitialData');
+      Object.assign(S, {
+        groups: d.groups, tasks: d.tasks, maxTasks: d.maxTasks, maxGroups: d.maxGroups,
+        aiEnabled: d.aiEnabled, today: d.today, date: d.today,
+      });
+      const [y, m] = d.today.split('-').map(Number);
+      S.calY = y; S.calM = m;
+      let last = null;
+      try { last = localStorage.getItem('lastGroupId'); } catch (e) { /* 使えなくても問題なし */ }
+      S.groupId = S.groups.some(g => g.id === last) ? last : (S.groups[0] ? S.groups[0].id : null);
+      renderGroupTabs();
+      loadDay();
+    }
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
